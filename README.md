@@ -1,59 +1,68 @@
 # 9router-docker
 
-Docker setup for running [9Router](https://www.npmjs.com/package/9router) on PaaS platforms such as Render, Railway, Koyeb, Fly.io, or Hugging Face Docker Spaces.
+Simple Docker setup for running 9Router on PaaS platforms.
 
-## What this image does
+## How this setup works
 
-- Installs `9router` globally with npm.
-- Runs it as a public HTTP service.
-- Binds to `0.0.0.0`.
-- Uses the platform `PORT` env var when available.
-- Optionally restores your existing 9Router SQLite config from environment secrets.
+This repo expects you to place your exported 9Router SQLite database at:
 
-## Environment variables
+```text
+data.sqlite
+```
 
-| Name | Required | Description |
-| --- | --- | --- | --- |
-| `PORT` | Usually provided by PaaS | Port to run 9Router on. Defaults to `7860`. |
-| `NINE_ROUTER_DB_SQLITE_B64` | Optional | Base64-encoded copy of `~/.9router/db/data.sqlite`. Restores providers, combos, API keys, etc. |
-| `NINE_ROUTER_JWT_SECRET` | Optional | Contents of `~/.9router/jwt-secret`. Helps preserve dashboard/session signing. |
-| `NINE_ROUTER_MACHINE_ID` | Optional | Contents of `~/.9router/machine-id`. |
+During Docker build it copies the file into 9Router's data folder:
 
-## Export your local 9Router config
+```text
+/root/.9router/db/data.sqlite
+```
 
-On the device where 9Router is already configured:
+Then it starts 9Router on the platform port.
+
+## Files
+
+```text
+Dockerfile
+README.md
+.dockerignore
+.gitignore
+data.sqlite   # add this manually; ignored by git for safety
+```
+
+## Export from local Termux 9Router
+
+On your phone/Termux:
 
 ```bash
-# optional: stop local 9Router briefly for a cleaner SQLite snapshot
 pkill -f 9router || true
-
-base64 -w 0 ~/.9router/db/data.sqlite
-cat ~/.9router/jwt-secret
-cat ~/.9router/machine-id
+cp ~/.9router/db/data.sqlite ./data.sqlite
 ```
 
-Copy the outputs into your PaaS secret/environment variable panel. Do **not** commit these values to GitHub.
+Upload or copy that `data.sqlite` into the PaaS/repo build context.
 
-## Test after deployment
+> Important: `data.sqlite` can contain provider tokens/API keys. Do not commit it to a public repo. This repo ignores `*.sqlite` by default.
 
-Replace the URL with your deployed service URL:
+## Dockerfile
+
+```dockerfile
+FROM node:20-slim
+
+WORKDIR /app
+
+RUN npm install -g 9router
+
+RUN mkdir -p /root/.9router/db
+COPY data.sqlite /root/.9router/db/data.sqlite
+
+ENV PORT=7860
+EXPOSE 7860
+
+CMD ["sh", "-c", "9router --skip-update --no-browser --log -H 0.0.0.0 -p ${PORT:-7860}"]
+```
+
+## Test after deploy
 
 ```bash
-curl https://your-service.example.com/v1/models
+curl https://YOUR-SERVICE-URL/v1/models
 ```
 
-Expected result: JSON containing your combo names such as `Modelmix`, `FastMini`, `Researcher`, `Coder`, `Reviewer`, or `Vision`.
-
-## Hermes config example
-
-```bash
-hermes config set model.base_url https://your-service.example.com/v1
-```
-
-If you have auxiliary models configured, update their `base_url` values too.
-
-## Notes
-
-- Free PaaS services often sleep when idle. First request after idle can be slow.
-- Keep the repository private if you ever accidentally add config files.
-- This repo intentionally ignores `.sqlite`, `.env`, and `.9router` files.
+Expected: your 9Router combos such as `Modelmix`, `FastMini`, `Researcher`, `Coder`, `Reviewer`, and `Vision`.
