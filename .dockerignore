@@ -1,0 +1,7 @@
+.git
+.9router
+*.sqlite
+*.sqlite-*
+.env
+.env.*
+node_modules
