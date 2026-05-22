@@ -4,9 +4,6 @@ WORKDIR /app
 
 RUN npm install -g 9router
 
-RUN mkdir -p /root/.9router/db
-COPY data.sqlite /root/.9router/db/data.sqlite
-
 ENV PORT=7860
 EXPOSE 7860
 
